@@ -1,0 +1,36 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/userdb
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/ecommerce-realm
+
+keycloak:
+  auth-server-url: http://localhost:8080
+  realm: ecommerce-realm
+  resource: ecommerce-app
+  credentials:
+    secret: D26P8AYDQ1r0MBOoO7yRTWqgkWnVylf9  # Lấy từ tab Credentials của Client
+  public-client: false
+  principal-attribute: preferred-username
+  ssl-required: external
+  use-resource-role-mappings: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
