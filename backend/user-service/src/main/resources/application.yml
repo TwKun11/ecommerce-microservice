@@ -17,14 +17,46 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/ecommerce-realm
+          issuer-uri: http://localhost:8085/realms/user-service
+      client:
+        registration:
+          keycloak:
+            client-id: user-service
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:jKnRXsq3dK22QsIp8FjrGLHXL3IzRjLL}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your-google-client-secret}
+            scope:
+              - openid
+              - profile
+              - email
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8085/realms/user-service
+            user-name-attribute: preferred_username
+          google:
+            issuer-uri: https://accounts.google.com
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 keycloak:
-  auth-server-url: http://localhost:8080
-  realm: ecommerce-realm
-  resource: ecommerce-app
+  auth-server-url: http://localhost:8085
+  realm: user-service
+  resource: user-service
   credentials:
-    secret: D26P8AYDQ1r0MBOoO7yRTWqgkWnVylf9  # Lấy từ tab Credentials của Client
+    secret: jKnRXsq3dK22QsIp8FjrGLHXL3IzRjLL
   public-client: false
   principal-attribute: preferred-username
   ssl-required: external

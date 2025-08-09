@@ -1,103 +1,175 @@
-import org.keycloak.*;
+package org.kun.userservice.controller;
 
-import org.keycloak.representations.idm.CredentialRepresentation;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
-import org.springframework.beans.factory.annotation.Value;
+import org.kun.userservice.dto.*;
+import org.kun.userservice.service.UserService;
+import org.kun.userservice.service.GoogleAuthService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
+import jakarta.validation.Valid;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class UserController {
 
-    @Value("${keycloak.realm}")
-    private String realm;
+    private final UserService userService;
+    private final GoogleAuthService googleAuthService;
 
-    private final Keycloak keycloak;
-
-    public AuthController(Keycloak keycloak) {
-        this.keycloak = keycloak;
-    }
-
-    // Đăng ký tài khoản
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegistrationRequest request) {
-        UserRepresentation user = new UserRepresentation();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setEnabled(true);
-        user.setEmailVerified(false);
-
-        CredentialRepresentation credential = new CredentialRepresentation();
-        credential.setType(CredentialRepresentation.PASSWORD);
-        credential.setValue(request.getPassword());
-        credential.setTemporary(false);
-
-        user.setCredentials(Collections.singletonList(credential));
-
-        UsersResource usersResource = keycloak.realm(realm).users();
-        Response response = usersResource.create(user);
-
-        if (response.getStatus() == 201) {
-            // Gán role user mặc định
-            String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-            UserResource userResource = usersResource.get(userId);
-            userResource.roles().realmLevel().add(Collections.singletonList(
-                    keycloak.realm(realm).roles().get("user").toRepresentation()
-            ));
-
-            return ResponseEntity.ok().body(Map.of("message", "User registered successfully"));
-        } else {
-            return ResponseEntity.badRequest().body(Map.of("error", "Registration failed"));
+    public ResponseEntity<ApiResponse> register(@RequestBody RegistrationRequest request) {
+        try {
+            ApiResponse response = userService.registerUser(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Registration error: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, "Registration failed: " + e.getMessage()));
         }
     }
 
-    // Lấy thông tin profile
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        try {
+            LoginResponse response = userService.loginUser(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Login error: ", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse(false, "Login failed: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(@AuthenticationPrincipal OidcUser principal) {
-        Map<String, Object> profile = new HashMap<>();
-        profile.put("id", principal.getName());
-        profile.put("username", principal.getPreferredUsername());
-        profile.put("email", principal.getEmail());
-        profile.put("firstName", principal.getGivenName());
-        profile.put("lastName", principal.getFamilyName());
-
-        return ResponseEntity.ok(profile);
+    public ResponseEntity<?> getProfile(@AuthenticationPrincipal Jwt jwt) {
+        try {
+            String userId = jwt.getSubject();
+            UserRepresentation user = userService.getUserProfile(userId);
+            
+            Map<String, Object> profile = new HashMap<>();
+            profile.put("id", user.getId());
+            profile.put("username", user.getUsername());
+            profile.put("email", user.getEmail());
+            profile.put("firstName", user.getFirstName());
+            profile.put("lastName", user.getLastName());
+            profile.put("emailVerified", user.isEmailVerified());
+            profile.put("enabled", user.isEnabled());
+            
+            return ResponseEntity.ok(new ApiResponse(true, "Profile retrieved successfully", profile));
+        } catch (Exception e) {
+            log.error("Error getting profile: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse(false, "Failed to get profile: " + e.getMessage()));
+        }
     }
 
-    // Đổi mật khẩu
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@AuthenticationPrincipal OidcUser principal,
-                                            @RequestBody ChangePasswordRequest request) {
-        UsersResource usersResource = keycloak.realm(realm).users();
-        UserResource userResource = usersResource.get(principal.getName());
-
-        CredentialRepresentation newCredential = new CredentialRepresentation();
-        newCredential.setType(CredentialRepresentation.PASSWORD);
-        newCredential.setValue(request.getNewPassword());
-        newCredential.setTemporary(false);
-
-        userResource.resetPassword(newCredential);
-
-        return ResponseEntity.ok().body(Map.of("message", "Password changed successfully"));
+    public ResponseEntity<ApiResponse> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        try {
+            String userId = jwt.getSubject();
+            ApiResponse response = userService.changePassword(userId, request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Change password error: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, "Failed to change password: " + e.getMessage()));
+        }
     }
 
-    // Model classes
-    public static class RegistrationRequest {
-        private String username;
-        private String email;
-        private String password;
-        // getters & setters
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        try {
+            ApiResponse response = userService.forgotPassword(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Forgot password error: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, "Failed to send reset email: " + e.getMessage()));
+        }
     }
 
-    public static class ChangePasswordRequest {
-        private String newPassword;
-        // getters & setters
+    @PostMapping("/google-login")
+    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            LoginResponse response = googleAuthService.loginWithGoogle(request.getIdToken(), request.isRememberMe());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Google login error: ", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse(false, "Google login failed: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password-request")
+    public ResponseEntity<ApiResponse> requestPasswordReset(@RequestBody ForgotPasswordRequest request) {
+        try {
+            ApiResponse response = userService.initiatePasswordReset(request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Password reset request error: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, "Failed to process password reset request: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            ApiResponse response = userService.resetPasswordWithToken(request.getToken(), request.getNewPassword());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Password reset error: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, "Failed to reset password: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal Jwt jwt) {
+        try {
+            String userId = jwt.getSubject();
+            
+            // Double-check admin role
+            if (!userService.hasAdminRole(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse(false, "Access denied. Admin role required."));
+            }
+            
+            List<UserRepresentation> users = userService.getAllUsers();
+            
+            // Filter sensitive information
+            List<Map<String, Object>> userList = users.stream().map(user -> {
+                Map<String, Object> userMap = new HashMap<>();
+                userMap.put("id", user.getId());
+                userMap.put("username", user.getUsername());
+                userMap.put("email", user.getEmail());
+                userMap.put("firstName", user.getFirstName());
+                userMap.put("lastName", user.getLastName());
+                userMap.put("enabled", user.isEnabled());
+                userMap.put("emailVerified", user.isEmailVerified());
+                userMap.put("createdTimestamp", user.getCreatedTimestamp());
+                return userMap;
+            }).toList();
+            
+            return ResponseEntity.ok(new ApiResponse(true, "Users retrieved successfully", userList));
+        } catch (Exception e) {
+            log.error("Error getting all users: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse(false, "Failed to get users: " + e.getMessage()));
+        }
     }
 }
