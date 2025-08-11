@@ -208,3 +208,4 @@ public class AuthController {
 5. **Update frontend** để dùng Keycloak redirects
 
 Bạn muốn tôi cấu hình cụ thể phần nào trước?
+

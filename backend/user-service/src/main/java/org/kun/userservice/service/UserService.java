@@ -24,7 +24,6 @@ public class UserService {
 
     private final Keycloak keycloak;
     private final RestTemplate restTemplate;
-    private final EmailService emailService;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -41,9 +40,8 @@ public class UserService {
     // Store for password reset tokens (in production, use Redis or database)
     private final Map<String, PasswordResetToken> resetTokens = new HashMap<>();
 
-    public UserService(Keycloak keycloak, EmailService emailService) {
+    public UserService(Keycloak keycloak) {
         this.keycloak = keycloak;
-        this.emailService = emailService;
         this.restTemplate = new RestTemplate();
     }
 
@@ -188,7 +186,6 @@ public class UserService {
 
     public ApiResponse forgotPassword(ForgotPasswordRequest request) {
         try {
-            // Find user by email
             List<UserRepresentation> users = keycloak.realm(realm).users()
                     .search(null, null, null, request.getEmail(), 0, 1);
 
@@ -209,31 +206,7 @@ public class UserService {
         }
     }
 
-    public ApiResponse initiatePasswordReset(String email) {
-        try {
-            // Find user by email
-            List<UserRepresentation> users = keycloak.realm(realm).users()
-                    .search(null, null, null, email, 0, 1);
 
-            if (users.isEmpty()) {
-                return new ApiResponse(false, "Email not found");
-            }
-
-            UserRepresentation user = users.get(0);
-            
-            // Generate reset token
-            String resetToken = UUID.randomUUID().toString();
-            resetTokens.put(resetToken, new PasswordResetToken(user.getId()));
-            
-            // Send email
-            emailService.sendPasswordResetEmail(email, resetToken);
-            
-            return new ApiResponse(true, "Password reset email sent successfully");
-        } catch (Exception e) {
-            log.error("Error initiating password reset: ", e);
-            return new ApiResponse(false, "Failed to initiate password reset: " + e.getMessage());
-        }
-    }
 
     public ApiResponse resetPasswordWithToken(String token, String newPassword) {
         try {
