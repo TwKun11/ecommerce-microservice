@@ -51,6 +51,16 @@ spring:
           starttls:
             enable: true
 
+# Big Tech Cookie Configuration (for Keycloak integration)
+app:
+  security:
+    refresh-token:
+      expiration: 2592000 # 30 days
+    cookie:
+      domain: localhost
+      secure: false # Set to true for HTTPS production
+
+# Keycloak Configuration for Authorization Code Flow
 keycloak:
   auth-server-url: http://localhost:8085
   realm: user-service
@@ -58,9 +68,17 @@ keycloak:
   credentials:
     secret: jKnRXsq3dK22QsIp8FjrGLHXL3IzRjLL
   public-client: false
-  principal-attribute: preferred-username
+  confidential-port: 0
+  principal-attribute: preferred_username
   ssl-required: external
   use-resource-role-mappings: true
+  bearer-only: false
+  verify-token-audience: true
+  token-minimum-time-to-live: 0
+  token-time-to-live: 900 # 15 minutes
+  token-time-to-live-if-remember-me: 86400 # 24 hours
+  refresh-token-time-to-live: 2592000 # 30 days
+  refresh-token-time-to-live-if-remember-me: 2592000 # 30 days
 
 eureka:
   client:

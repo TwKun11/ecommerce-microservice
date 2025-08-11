@@ -130,9 +130,6 @@ public class SimpleAuthController {
         }
     }
 
-    /**
-     * Health check endpoint
-     */
     @GetMapping("/health")
     public ResponseEntity<?> health() {
         Map<String, Object> health = new HashMap<>();
@@ -143,3 +140,4 @@ public class SimpleAuthController {
         return ResponseEntity.ok(health);
     }
 }
+

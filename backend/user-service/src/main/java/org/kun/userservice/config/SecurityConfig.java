@@ -34,8 +34,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // Big Tech Auth endpoints (NEW)
+                        .requestMatchers("/api/auth/login", "/api/auth/callback", "/api/auth/refresh", 
+                                       "/api/auth/logout", "/api/auth/logout-redirect", "/api/auth/health").permitAll()
                         // Original custom endpoints
-                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/forgot-password", 
+                        .requestMatchers("/api/auth/register", "/api/auth/forgot-password", 
                                        "/api/auth/google-login", "/api/auth/reset-password-request", 
                                        "/api/auth/reset-password").permitAll()
                         // Simple auth endpoints (using Keycloak features)

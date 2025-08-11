@@ -7,3 +7,4 @@ public class GoogleLoginRequest {
     private String idToken;
     private boolean rememberMe = false;
 }
+

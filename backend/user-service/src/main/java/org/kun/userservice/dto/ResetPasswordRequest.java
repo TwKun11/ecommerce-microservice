@@ -11,3 +11,4 @@ public class ResetPasswordRequest {
     @NotBlank(message = "New password is required")
     private String newPassword;
 }
+

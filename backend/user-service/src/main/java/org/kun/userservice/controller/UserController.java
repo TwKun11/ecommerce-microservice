@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.kun.userservice.dto.*;
 import org.kun.userservice.service.UserService;
-import org.kun.userservice.service.GoogleAuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +24,6 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final GoogleAuthService googleAuthService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse> register(@RequestBody RegistrationRequest request) {
@@ -101,29 +99,9 @@ public class UserController {
         }
     }
 
-    @PostMapping("/google-login")
-    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
-        try {
-            LoginResponse response = googleAuthService.loginWithGoogle(request.getIdToken(), request.isRememberMe());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Google login error: ", e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse(false, "Google login failed: " + e.getMessage()));
-        }
-    }
 
-    @PostMapping("/reset-password-request")
-    public ResponseEntity<ApiResponse> requestPasswordReset(@RequestBody ForgotPasswordRequest request) {
-        try {
-            ApiResponse response = userService.initiatePasswordReset(request.getEmail());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Password reset request error: ", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, "Failed to process password reset request: " + e.getMessage()));
-        }
-    }
+
+
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
